@@ -15,6 +15,7 @@
                 "Policies": [],
                 "Environment": {
                     "Variables": {
+                        "GHOST_URL": { "Ref": "GhostUrl" },
                         "TWITTER_CONSUMER_KEY": { "Ref": "TwitterConsumerKey" },
                         "TWITTER_CONSUMER_SECRET": { "Ref": "TwitterConsumerSecret" },
                         "TWITTER_ACCESS_TOKEN": { "Ref": "TwitterAccessToken" },
@@ -24,11 +25,20 @@
                         "DATABASE_USER": { "Ref": "DatabaseUser" },
                         "DATABASE_PASSWORD": { "Ref": "DatabasePassword" }
                     }
+                },
+                "Events": {
+                    "Timer": {
+                        "Type": "Schedule",
+                        "Properties": {
+                            "Schedule": "cron(0 19 * * ? *)"
+                        }
+                    }
                 }
             }
         }
     },
     "Parameters": {
+        "GhostUrl": { "Type": "String" },
         "TwitterConsumerKey": { "Type": "String" },
         "TwitterConsumerSecret": { "Type": "String" },
         "TwitterAccessToken": { "Type": "String" },

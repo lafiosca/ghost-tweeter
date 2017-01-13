@@ -11,8 +11,8 @@
                 "CodeUri": "export/dist.zip",
                 "MemorySize": 128,
                 "Timeout": 20,
-                "Description": "Tweet a blog link"
-                "Policies": ["AmazonS3ReadOnlyAccess"],
+                "Description": "Tweet a blog link",
+                "Policies": [],
                 "Environment": {
                     "Variables": {
                         "TWITTER_CONSUMER_KEY": { "Ref": "TwitterConsumerKey" },

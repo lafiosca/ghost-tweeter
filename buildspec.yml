@@ -1,0 +1,20 @@
+version: 0.1
+
+phases:
+  install:
+    commands:
+      - apt-get update -y
+      - apt-get install -y ssh
+      - npm install -g gulp-cli
+  build:
+    commands:
+      - npm install && gulp build
+  post_build:
+    commands:
+      - "test -n \"$S3_BUCKET_ARTIFACTS\" && aws cloudformation package --template-file sam-template.json --output-template-file sam-output.yml --s3-bucket \"$S3_BUCKET_ARTIFACTS\" --s3-prefix `echo $CODEBUILD_BUILD_ID | tr : /`"
+      - aws s3 cp s3://$S3_BUCKET_CONFIG/`echo $CODEBUILD_BUILD_ID | cut -f1 -d:`/cf-params.json .
+artifacts:
+  type: zip
+  files:
+    - sam-output.yml
+    - cf-params.json

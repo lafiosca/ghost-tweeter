@@ -1,0 +1,26 @@
+{
+  "name": "ghost-tweeter",
+  "version": "0.1.0",
+  "description": "Lambda function for tweeting Ghost blog links",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/lafiosca/ghost-tweeter.git"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Joe Lafiosca <joe@lafiosca.com>",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "gulp": "github:gulpjs/gulp#4.0",
+    "gulp-install": "^0.6.0",
+    "gulp-zip": "^3.2.0"
+  },
+  "dependencies": {
+    "bluebird": "^3.4.7",
+    "pg-promise": "^5.5.1",
+    "promiser-to-lambda": "^1.0.0",
+    "twit": "^2.2.5"
+  }
+}

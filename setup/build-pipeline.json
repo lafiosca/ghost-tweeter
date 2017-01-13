@@ -1,0 +1,436 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Resources": {
+        "Pipeline": {
+            "Type": "AWS::CodePipeline::Pipeline",
+            "Properties": {
+                "Name": { "Ref": "ProjectName" },
+                "RoleArn": { "Ref": "CodePipelineServiceRole" },
+                "RestartExecutionOnUpdate": false,
+                "ArtifactStore": {
+                    "Type": "S3",
+                    "Location": { "Ref": "CodePipelineS3Bucket" }
+                },
+                "Stages": [
+                    {
+                        "Name": "Source",
+                        "Actions": [
+                            {
+                                "RunOrder": 1,
+                                "Name": "Source",
+                                "InputArtifacts": [],
+                                "OutputArtifacts": [
+                                    { "Name": "source" }
+                                ],
+                                "ActionTypeId": {
+                                    "Category": "Source",
+                                    "Owner": "ThirdParty",
+                                    "Version": "1",
+                                    "Provider": "GitHub"
+                                },
+                                "Configuration": {
+                                    "Owner": { "Ref": "GitHubOwner" },
+                                    "Repo": { "Ref": "GitHubRepo" },
+                                    "Branch": { "Ref": "GitHubBranch" },
+                                    "OAuthToken": { "Ref": "GitHubOAuthToken" }
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "Name": "Build",
+                        "Actions": [
+                            {
+                                "RunOrder": 1,
+                                "Name": "CodeBuild",
+                                "InputArtifacts": [
+                                    { "Name": "source" }
+                                ],
+                                "OutputArtifacts": [
+                                    { "Name": "build-artifacts" }
+                                ],
+                                "ActionTypeId": {
+                                    "Category": "Build",
+                                    "Owner": "AWS",
+                                    "Version": "1",
+                                    "Provider": "CodeBuild"
+                                },
+                                "Configuration": {
+                                    "ProjectName": { "Ref": "BuildProject" }
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "Name": "DevDeploy",
+                        "Actions": [
+                            {
+                                "RunOrder": 1,
+                                "Name": "CreateChangeset",
+                                "InputArtifacts": [
+                                    { "Name": "build-artifacts" }
+                                ],
+                                "OutputArtifacts": [],
+                                "ActionTypeId": {
+                                    "Category": "Deploy",
+                                    "Owner": "AWS",
+                                    "Version": "1",
+                                    "Provider": "CloudFormation"
+                                },
+                                "Configuration": {
+                                    "ActionMode": "CHANGE_SET_REPLACE",
+                                    "StackName": {
+                                        "Fn::Join": [
+                                            "-",
+                                            ["Dev", { "Ref": "ProjectName" }]
+                                        ]
+                                    },
+                                    "ChangeSetName": {
+                                        "Fn::Join": [
+                                            "-",
+                                            ["Dev", { "Ref": "ProjectName" }, "changes" ]
+                                        ]
+                                    },
+                                    "TemplatePath": "build-artifacts::sam-output.yml",
+                                    "TemplateConfiguration": "build-artifacts::cf-params.json",
+                                    "RoleArn": { "Ref": "CloudFormationServiceRole" },
+                                    "Capabilities": "CAPABILITY_IAM"
+                                }
+                            },
+                            {
+                                "RunOrder": 2,
+                                "Name": "ExecuteChangeset",
+                                "InputArtifacts": [],
+                                "OutputArtifacts": [
+                                    { "Name": "dev-cf-output" }
+                                ],
+                                "ActionTypeId": {
+                                    "Category": "Deploy",
+                                    "Owner": "AWS",
+                                    "Version": "1",
+                                    "Provider": "CloudFormation"
+                                },
+                                "Configuration": {
+                                    "ActionMode": "CHANGE_SET_EXECUTE",
+                                    "StackName": {
+                                        "Fn::Join": [
+                                            "-",
+                                            ["Dev", { "Ref": "ProjectName" }]
+                                        ]
+                                    },
+                                    "ChangeSetName": {
+                                        "Fn::Join": [
+                                            "-",
+                                            ["Dev", { "Ref": "ProjectName" }, "changes" ]
+                                        ]
+                                    },
+                                    "OutputFileName": "cf-output.json"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "Name": "DevApprove",
+                        "Actions": [
+                            {
+                                "RunOrder": 1,
+                                "Name": "DevApprove",
+                                "InputArtifacts": [],
+                                "OutputArtifacts": [],
+                                "ActionTypeId": {
+                                    "Category": "Approval",
+                                    "Owner": "AWS",
+                                    "Version": "1",
+                                    "Provider": "Manual"
+                                },
+                                "Configuration": {
+                                    "NotificationArn": { "Ref": "ApprovalTopic" },
+                                    "CustomData": {
+                                        "Fn::Join": [
+                                            " ",
+                                            [
+                                                "Please verify the",
+                                                { "Ref": "ProjectDescriptionName" },
+                                                "dev services before prod deployment."
+                                            ]
+                                        ]
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "Name": "ProdDeploy",
+                        "Actions": [
+                            {
+                                "RunOrder": 1,
+                                "Name": "CreateChangeset",
+                                "InputArtifacts": [
+                                    { "Name": "build-artifacts" }
+                                ],
+                                "OutputArtifacts": [],
+                                "ActionTypeId": {
+                                    "Category": "Deploy",
+                                    "Owner": "AWS",
+                                    "Version": "1",
+                                    "Provider": "CloudFormation"
+                                },
+                                "Configuration": {
+                                    "ActionMode": "CHANGE_SET_REPLACE",
+                                    "StackName": {
+                                        "Fn::Join": [
+                                            "-",
+                                            ["Prod", { "Ref": "ProjectName" }]
+                                        ]
+                                    },
+                                    "ChangeSetName": {
+                                        "Fn::Join": [
+                                            "-",
+                                            ["Prod", { "Ref": "ProjectName" }, "changes" ]
+                                        ]
+                                    },
+                                    "TemplatePath": "build-artifacts::sam-output.yml",
+                                    "TemplateConfiguration": "build-artifacts::cf-params.json",
+                                    "RoleArn": { "Ref": "CloudFormationServiceRole" },
+                                    "Capabilities": "CAPABILITY_IAM"
+                                }
+                            },
+                            {
+                                "RunOrder": 2,
+                                "Name": "ExecuteChangeset",
+                                "InputArtifacts": [],
+                                "OutputArtifacts": [
+                                    { "Name": "prod-cf-output" }
+                                ],
+                                "ActionTypeId": {
+                                    "Category": "Deploy",
+                                    "Owner": "AWS",
+                                    "Version": "1",
+                                    "Provider": "CloudFormation"
+                                },
+                                "Configuration": {
+                                    "ActionMode": "CHANGE_SET_EXECUTE",
+                                    "StackName": {
+                                        "Fn::Join": [
+                                            "-",
+                                            ["Prod", { "Ref": "ProjectName" }]
+                                        ]
+                                    },
+                                    "ChangeSetName": {
+                                        "Fn::Join": [
+                                            "-",
+                                            ["Prod", { "Ref": "ProjectName" }, "changes" ]
+                                        ]
+                                    },
+                                    "OutputFileName": "cf-output.json"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        "BuildProject": {
+            "Type": "AWS::CodeBuild::Project",
+            "Properties": {
+                "Name": { "Ref": "ProjectName" },
+                "ServiceRole": { "Fn::GetAtt": ["BuildServiceRole", "Arn"] },
+                "Source": { "Type": "CODEPIPELINE" },
+                "Artifacts": { "Type": "CODEPIPELINE" },
+                "Environment": {
+                    "ComputeType": "BUILD_GENERAL1_SMALL",
+                    "Image": "aws/codebuild/nodejs:4.3.2",
+                    "Type": "LINUX_CONTAINER",
+                    "EnvironmentVariables": [
+                        {
+                            "Name": "S3_BUCKET_ARTIFACTS",
+                            "Value": { "Ref": "S3BucketArtifacts" }
+                        },
+                        {
+                            "Name": "S3_BUCKET_CONFIG",
+                            "Value": { "Ref": "S3BucketConfig" }
+                        }
+                    ]
+                },
+                "TimeoutInMinutes": 20,
+                "Tags": []
+            }
+        },
+        "BuildServiceRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": {
+                    "Fn::Join": [
+                        "-",
+                        ["CodeBuild", { "Ref": "ProjectName" }, "service-role"]
+                    ]
+                },
+                "Path": "/service-role/",
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": { "Service": "codebuild.amazonaws.com" },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Policies": [
+                    {
+                        "PolicyName": "CodeBuild-S3GetAccess-Config",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Resource": [{
+                                        "Fn::Join": [
+                                            "",
+                                            ["arn:aws:s3:::", { "Ref": "S3BucketConfig" }, "/*"]
+                                        ]
+                                    }],
+                                    "Action": [ "s3:GetObject" ]
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "CodeBuild-S3PutAccess-Artifacts",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Resource": [{
+                                        "Fn::Join": [
+                                            "",
+                                            ["arn:aws:s3:::", { "Ref": "S3BucketArtifacts" }, "/*"]
+                                        ]
+                                    }],
+                                    "Action": [ "s3:PutObject" ]
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "CodeBuild-S3FullObjectAccess-Pipeline",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Resource": [{ "Ref": "CodePipelineS3Bucket" }],
+                                    "Action": [
+                                        "s3:GetObject",
+                                        "s3:GetObjectVersion",
+                                        "s3:PutObject"
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "CodeBuild-LogWriteAccess",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Resource": [
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:logs:*:*:log-group:/aws/codebuild/",
+                                                    { "Ref": "ProjectName" }
+                                                ]
+                                            ]
+                                        },
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:logs:*:*:log-group:/aws/codebuild/",
+                                                    { "Ref": "ProjectName" },
+                                                    ":*"
+                                                ]
+                                            ]
+                                        }
+                                    ],
+                                    "Action": [
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "logs:PutLogEvents"
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "ApprovalTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "DisplayName": "Approval",
+                "Subscription": [{
+                    "Protocol": "email",
+                    "Endpoint": { "Ref": "ApprovalEmail" }
+                }]
+            }
+        }
+    },
+    "Parameters": {
+        "CodePipelineServiceRole": {
+            "Type": "String",
+            "Description": "ARN of CodePipeline service role"
+        },
+        "CodePipelineS3Bucket": {
+            "Type": "String",
+            "Description": "S3 bucket used for CodePipeline artifacts"
+        },
+        "CloudFormationServiceRole": {
+            "Type": "String",
+            "Description": "ARN of CloudFormation service role"
+        },
+        "ProjectName": {
+            "Type": "String",
+            "Description": "Base project name for use in identifiers (e.g., \"GhostTweeter\")",
+            "AllowedPattern": "[A-Za-z0-9]*"
+        },
+        "ProjectDescriptionName": {
+            "Type": "String",
+            "Description": "Nice project name for use in descriptions (e.g., \"Ghost Tweeter\")"
+        },
+        "GitHubOwner": {
+            "Type": "String",
+            "Description": "GitHub user/org who owns the repository being built (e.g., \"lafiosca\")"
+        },
+        "GitHubRepo": {
+            "Type": "String",
+            "Description": "GitHub repository name to be built (e.g., \"ghost-tweeter\")"
+        },
+        "GitHubBranch": {
+            "Type": "String",
+            "Description": "Repository branch to build from (e.g., \"master\")"
+        },
+        "GitHubOAuthToken": {
+            "Type": "String",
+            "Description": "GitHub personal OAuth token with repo and admin:repo_hook scopes for a user with admin access to the repository <https://help.github.com/articles/creating-an-access-token-for-command-line-use/>",
+            "NoEcho": true
+        },
+        "S3BucketArtifacts": {
+            "Type": "String",
+            "Description": "S3 bucket where Lambda build artifacts will be stored for deployment"
+        },
+        "S3BucketConfig": {
+            "Type": "String",
+            "Description": "S3 bucket where build config params are stored"
+        },
+        "ApprovalEmail": {
+            "Type": "String",
+            "Description": "Email address to subscribe to deployment approval topic"
+        }
+    }
+}

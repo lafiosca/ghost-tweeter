@@ -1,0 +1,41 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Transform": "AWS::Serverless-2016-10-31",
+    "Description": "User notifications inbox service",
+    "Resources": {
+        "TweetFunction": {
+            "Type": "AWS::Serverless::Function",
+            "Properties": {
+                "Handler": "index.handler",
+                "Runtime": "nodejs4.3",
+                "CodeUri": "export/dist.zip",
+                "MemorySize": 128,
+                "Timeout": 20,
+                "Description": "Tweet a blog link"
+                "Policies": [],
+                "Environment": {
+                    "Variables": {
+                        "TWITTER_CONSUMER_KEY": { "Ref": "TwitterConsumerKey" },
+                        "TWITTER_CONSUMER_SECRET": { "Ref": "TwitterConsumerSecret" },
+                        "TWITTER_ACCESS_TOKEN": { "Ref": "TwitterAccessToken" },
+                        "TWITTER_ACCESS_TOKEN_SECRET": { "Ref": "TwitterAccessTokenSecret" },
+                        "DATABASE_HOST": { "Ref": "DatabaseHost" },
+                        "DATABASE_NAME": { "Ref": "DatabaseName" },
+                        "DATABASE_USER": { "Ref": "DatabaseUser" },
+                        "DATABASE_PASSWORD": { "Ref": "DatabasePassword" }
+                    }
+                }
+            }
+        }
+    },
+    "Parameters": {
+        "TwitterConsumerKey": { "Type": "String" },
+        "TwitterConsumerSecret": { "Type": "String" },
+        "TwitterAccessToken": { "Type": "String" },
+        "TwitterAccessTokenSecret": { "Type": "String" },
+        "DatabaseHost": { "Type": "String" },
+        "DatabaseName": { "Type": "String" },
+        "DatabaseUser": { "Type": "String" },
+        "DatabasePassword": { "Type": "String" }
+    }
+}

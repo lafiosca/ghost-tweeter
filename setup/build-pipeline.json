@@ -320,7 +320,16 @@
                             "Statement": [
                                 {
                                     "Effect": "Allow",
-                                    "Resource": [{ "Ref": "CodePipelineS3Bucket" }],
+                                    "Resource": [{
+                                        "Fn::Join": [
+                                            "",
+                                            [
+                                                "arn:aws:s3:::",
+                                                { "Ref": "CodePipelineS3Bucket" },
+                                                "/*"
+                                            ]
+                                        ]
+                                    }],
                                     "Action": [
                                         "s3:GetObject",
                                         "s3:GetObjectVersion",

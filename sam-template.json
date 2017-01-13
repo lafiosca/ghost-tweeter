@@ -12,7 +12,7 @@
                 "MemorySize": 128,
                 "Timeout": 20,
                 "Description": "Tweet a blog link"
-                "Policies": [],
+                "Policies": ["AmazonS3ReadOnlyAccess"],
                 "Environment": {
                     "Variables": {
                         "TWITTER_CONSUMER_KEY": { "Ref": "TwitterConsumerKey" },
